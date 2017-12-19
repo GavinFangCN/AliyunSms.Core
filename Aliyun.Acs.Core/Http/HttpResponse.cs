@@ -78,6 +78,32 @@ namespace Aliyun.Acs.Core.Http
             }
         }
 
+        private static async Task PasrseHttpResponseAsync(HttpResponse httpResponse, HttpWebResponse httpWebResponse)
+        {
+            httpResponse.Content = await ReadContentAsync(httpResponse, httpWebResponse);
+            httpResponse.Status = (int)httpWebResponse.StatusCode;
+            httpResponse.Headers = new Dictionary<string, string>();
+            httpResponse.Method = ParameterHelper.StringToMethodType(httpWebResponse.Method);
+
+            foreach (var key in httpWebResponse.Headers.AllKeys)
+            {
+                httpResponse.Headers.Add(key, httpWebResponse.Headers[key]);
+            }
+
+            string type = httpResponse.Headers["Content-Type"];
+            if (null != type)
+            {
+                httpResponse.Encoding = "UTF-8";
+                string[] split = type.Split(';');
+                httpResponse.ContentType = ParameterHelper.StingToFormatType(split[0].Trim());
+                if (split.Length > 1 && split[1].Contains("="))
+                {
+                    string[] codings = split[1].Split('=');
+                    httpResponse.Encoding = codings[1].Trim().ToUpper();
+                }
+            }
+        }
+
         public static byte[] ReadContent(HttpResponse response, HttpWebResponse rsp)
         {
             var buffer = new byte[bufferLength];
@@ -171,7 +197,7 @@ namespace Aliyun.Acs.Core.Http
                 }
             }
 
-            PasrseHttpResponse(httpResponse, httpWebResponse);
+            await PasrseHttpResponseAsync(httpResponse, httpWebResponse);
             return httpResponse;
         }
 
