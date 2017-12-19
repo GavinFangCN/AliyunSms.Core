@@ -9,6 +9,7 @@ using Aliyun.Acs.Core.Regions.Location;
 using Aliyun.Acs.Core.Transform;
 using Aliyun.Acs.Core.Reader;
 using Aliyun.Acs.Core.Exceptions;
+using System.Threading.Tasks;
 
 namespace Aliyun.Acs.Core.Regions
 {
@@ -18,25 +19,25 @@ namespace Aliyun.Acs.Core.Regions
 
         private ISigner signer = new ShaHmac1();
 
-        private bool isEmpty(String str)
-        {
-            return ((str == null) || (str.Length == 0));
-        }
+        private bool IsEmpty(String str) => (str == null) || (str.Length == 0);
+        
 
         public DescribeEndpointResponse DescribeEndpoint(String regionId, String locationProduct,
                                                          Credential credential, LocationConfig locationConfig)
         {
-            if (isEmpty(locationProduct))
+            if (IsEmpty(locationProduct))
             {
                 return null;
             }
 
-            DescribeEndpointRequest request = new DescribeEndpointRequest();
-            request.AcceptFormat = FormatType.JSON;
-            request.Id = regionId;
-            request.RegionId = locationConfig.RegionId;
-            request.LocationProduct = locationProduct;
-            request.EndpointType = DEFAULT_ENDPOINT_TYPE;
+            var request = new DescribeEndpointRequest
+            {
+                AcceptFormat = FormatType.JSON,
+                Id = regionId,
+                RegionId = locationConfig.RegionId,
+                LocationProduct = locationProduct,
+                EndpointType = DEFAULT_ENDPOINT_TYPE
+            };
 
             ProductDomain domain = new ProductDomain(locationConfig.Product, locationConfig.Endpoint);
 
@@ -48,7 +49,7 @@ namespace Aliyun.Acs.Core.Regions
                 {
                     String data = System.Text.Encoding.UTF8.GetString(httpResponse.Content);
                     DescribeEndpointResponse response = getEndpointResponse(data, DEFAULT_ENDPOINT_TYPE);
-                    if (null == response || isEmpty(response.Endpoint))
+                    if (null == response || IsEmpty(response.Endpoint))
                     {
                         return null;
                     }
@@ -63,6 +64,61 @@ namespace Aliyun.Acs.Core.Regions
                 }
                 Console.WriteLine("Invoke_Error, requestId:" + error.RequestId + "; code:" + error.ErrorCode
                         + "; Msg" + error.ErrorMessage);
+                return null;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Invoke Remote Error,Msg" + e.Message);
+                return null;
+            }
+        }
+
+        public async Task<DescribeEndpointResponse> DescribeEndpointAsync(String regionId, String locationProduct,
+                                                         Credential credential, LocationConfig locationConfig)
+        {
+            if (IsEmpty(locationProduct))
+            {
+                return null;
+            }
+
+            var request = new DescribeEndpointRequest
+            {
+                AcceptFormat = FormatType.JSON,
+                Id = regionId,
+                RegionId = locationConfig.RegionId,
+                LocationProduct = locationProduct,
+                EndpointType = DEFAULT_ENDPOINT_TYPE
+            };
+
+            var domain = new ProductDomain(locationConfig.Product, locationConfig.Endpoint);
+
+            try
+            {
+                var httpRequest = request.SignRequest(signer, credential, FormatType.JSON, domain);
+                var httpResponse = await HttpResponse.GetResponseAsync(httpRequest);
+                if (httpResponse.IsSuccess())
+                {
+                    var data = Encoding.UTF8.GetString(httpResponse.Content);
+                    DescribeEndpointResponse response = getEndpointResponse(data, DEFAULT_ENDPOINT_TYPE);
+                    if (null == response || IsEmpty(response.Endpoint))
+                    {
+                        return null;
+                    }
+
+                    return response;
+                }
+
+                var error = readError(httpResponse, FormatType.JSON);
+                if (500 <= httpResponse.Status)
+                {
+                    Console.WriteLine("Invoke_Error, requestId:" + error.RequestId + "; code:" + error.ErrorCode
+                            + "; Msg" + error.ErrorMessage);
+                    return null;
+                }
+
+                Console.WriteLine("Invoke_Error, requestId:" + error.RequestId + "; code:" + error.ErrorCode
+                        + "; Msg" + error.ErrorMessage);
+
                 return null;
             }
             catch (Exception e)
