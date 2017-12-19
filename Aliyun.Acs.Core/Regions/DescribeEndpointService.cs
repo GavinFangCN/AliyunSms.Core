@@ -48,14 +48,14 @@ namespace Aliyun.Acs.Core.Regions
                 if (httpResponse.IsSuccess())
                 {
                     String data = System.Text.Encoding.UTF8.GetString(httpResponse.Content);
-                    DescribeEndpointResponse response = getEndpointResponse(data, DEFAULT_ENDPOINT_TYPE);
+                    DescribeEndpointResponse response = GetEndpointResponse(data, DEFAULT_ENDPOINT_TYPE);
                     if (null == response || IsEmpty(response.Endpoint))
                     {
                         return null;
                     }
                     return response;
                 }
-                AcsError error = readError(httpResponse, FormatType.JSON);
+                AcsError error = ReadError(httpResponse, FormatType.JSON);
                 if (500 <= httpResponse.Status)
                 {
                     Console.WriteLine("Invoke_Error, requestId:" + error.RequestId + "; code:" + error.ErrorCode
@@ -99,7 +99,7 @@ namespace Aliyun.Acs.Core.Regions
                 if (httpResponse.IsSuccess())
                 {
                     var data = Encoding.UTF8.GetString(httpResponse.Content);
-                    DescribeEndpointResponse response = getEndpointResponse(data, DEFAULT_ENDPOINT_TYPE);
+                    DescribeEndpointResponse response = GetEndpointResponse(data, DEFAULT_ENDPOINT_TYPE);
                     if (null == response || IsEmpty(response.Endpoint))
                     {
                         return null;
@@ -108,7 +108,7 @@ namespace Aliyun.Acs.Core.Regions
                     return response;
                 }
 
-                var error = readError(httpResponse, FormatType.JSON);
+                var error = ReadError(httpResponse, FormatType.JSON);
                 if (500 <= httpResponse.Status)
                 {
                     Console.WriteLine("Invoke_Error, requestId:" + error.RequestId + "; code:" + error.ErrorCode
@@ -128,12 +128,13 @@ namespace Aliyun.Acs.Core.Regions
             }
         }
 
-        private DescribeEndpointResponse getEndpointResponse(String data, String endpointType)
+        private DescribeEndpointResponse GetEndpointResponse(String data, String endpointType)
         {
             IReader reader = ReaderFactory.CreateInstance(FormatType.JSON);
-            UnmarshallerContext context = new UnmarshallerContext();
-
-            context.ResponseDictionary = reader.Read(data, "DescribeEndpointsResponse");
+            var context = new UnmarshallerContext
+            {
+                ResponseDictionary = reader.Read(data, "DescribeEndpointsResponse")
+            };
 
             int endpointsLength = context.Length("DescribeEndpointsResponse.Endpoints.Length");
             for (int i = 0; i < endpointsLength; i++)
@@ -141,30 +142,32 @@ namespace Aliyun.Acs.Core.Regions
                 if (endpointType.Equals(context
                         .StringValue("DescribeEndpointsResponse.Endpoints[" + i + "].Type")))
                 {
-                    DescribeEndpointResponse response = new DescribeEndpointResponse();
+                    var response = new DescribeEndpointResponse
+                    {
+                        RequestId = context.StringValue("DescribeEndpointsResponse.RequestId"),
+                        Product = context.StringValue("DescribeEndpointsResponse.Endpoints[" + i + "].SerivceCode"),
+                        Endpoint = context.StringValue("DescribeEndpointsResponse.Endpoints[" + i + "].Endpoint"),
+                        RegionId = context.StringValue("DescribeEndpointsResponse.Endpoints[" + i + "].Id")
+                    };
 
-                    response.RequestId = context.StringValue("DescribeEndpointsResponse.RequestId");
-                    response.Product = context.StringValue("DescribeEndpointsResponse.Endpoints[" + i + "].SerivceCode");
-                    response.Endpoint = context.StringValue("DescribeEndpointsResponse.Endpoints[" + i + "].Endpoint");
-                    response.RegionId = context.StringValue("DescribeEndpointsResponse.Endpoints[" + i + "].Id");
                     return response;
                 }
             }
             return null;
         }
 
-        private AcsError readError(HttpResponse httpResponse, FormatType format)
+        private AcsError ReadError(HttpResponse httpResponse, FormatType format)
         {
             String responseEndpoint = "Error";
             IReader reader = ReaderFactory.CreateInstance(format);
             UnmarshallerContext context = new UnmarshallerContext();
-            String stringContent = getResponseContent(httpResponse);
+            String stringContent = GetResponseContent(httpResponse);
             context.ResponseDictionary = reader.Read(stringContent, responseEndpoint);
 
             return AcsErrorUnmarshaller.Unmarshall(context);
         }
 
-        private String getResponseContent(HttpResponse httpResponse)
+        private String GetResponseContent(HttpResponse httpResponse)
         {
             String stringContent = null;
             try
