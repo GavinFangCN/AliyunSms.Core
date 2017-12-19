@@ -215,12 +215,9 @@ namespace Aliyun.Acs.Core.Http
             return true;
         }
 
-        public bool isSuccess()
+        public bool IsSuccess()
         {
-            if (200 <= this.Status &&
-                    300 > this.Status)
-                return true;
-            return false;
+            return 200 <= this.Status && 300 > this.Status;
         }
     }
 }

@@ -86,7 +86,7 @@ namespace Aliyun.Acs.Core
         {
             FormatType? format = httpResponse.ContentType;
 
-            if (httpResponse.isSuccess())
+            if (httpResponse.IsSuccess())
             {
                 return ReadResponse<T>(request, httpResponse, format);
             }

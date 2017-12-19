@@ -44,7 +44,7 @@ namespace Aliyun.Acs.Core.Regions
             {
                 HttpRequest httpRequest = request.SignRequest(signer, credential, FormatType.JSON, domain);
                 HttpResponse httpResponse = HttpResponse.GetResponse(httpRequest);
-                if (httpResponse.isSuccess())
+                if (httpResponse.IsSuccess())
                 {
                     String data = System.Text.Encoding.UTF8.GetString(httpResponse.Content);
                     DescribeEndpointResponse response = getEndpointResponse(data, DEFAULT_ENDPOINT_TYPE);
