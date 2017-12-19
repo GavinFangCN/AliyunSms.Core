@@ -21,6 +21,7 @@ using Aliyun.Acs.Core.Http;
 using Aliyun.Acs.Core.Regions;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Aliyun.Acs.Core.Profile
 {
@@ -38,5 +39,7 @@ namespace Aliyun.Acs.Core.Profile
         List<Endpoint> GetEndpoints();
 
         List<Endpoint> GetEndpoints(String regionId, String product, Credential credential, String locationProduct);
+
+        Task<List<Endpoint>> GetEndpointsAsync(String regionId, String product, Credential credential, String locationProduct);
     }
 }

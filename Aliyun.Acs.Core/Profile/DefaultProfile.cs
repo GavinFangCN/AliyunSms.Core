@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using Aliyun.Acs.Core.Regions.Location;
 using Aliyun.Acs.Core.Utils;
+using System.Threading.Tasks;
 
 namespace Aliyun.Acs.Core.Profile
 {
@@ -235,6 +236,32 @@ namespace Aliyun.Acs.Core.Profile
             return GetEndPointsFromLocal();
         }
 
+        public async Task<List<Endpoint>> GetEndpointsAsync(String regionId, String product, Credential credential, String locationProduct)
+        {
+            if (null != locationProduct)
+            {   //先自动寻址，找不到再找本地配置
+                var endPoints = await GetEndPointsFromLocationAsync(regionId, product, credential, locationProduct);
+                var endpoint = FindLocationEndpointByRegionId(regionId);
+                if (null == endpoint)
+                {
+                    return GetEndPointsFromLocal();
+                }
+                else
+                {
+                    var productDomains = endpoint.ProductDomains;
+                    var productDomain = FindProductDomain(productDomains, product);
+                    if (null == productDomain)
+                    {
+                        return GetEndPointsFromLocal();
+                    }
+                }
+
+                return endPoints;
+            }
+            //直接从本地配置中查找
+            return GetEndPointsFromLocal();
+        }
+
         private List<Endpoint> GetEndPointsFromLocal()
         {
             if (null == endpoints)
@@ -242,7 +269,7 @@ namespace Aliyun.Acs.Core.Profile
                 endpoints = iendpoints.GetEndpoints();
             }
 
-            return endpoints;
+            return endpoints; 
         }
 
         private List<Endpoint> GetEndPointsFromLocation(String regionId, String product, Credential credential, String locationProduct)
@@ -270,6 +297,31 @@ namespace Aliyun.Acs.Core.Profile
             return locationEndpoints;
         }
 
+        private async Task<List<Endpoint>> GetEndPointsFromLocationAsync(String regionId, String product, Credential credential, String locationProduct)
+        {
+            if (null == locationEndpoints)
+            {
+                locationEndpoints = new List<Endpoint>();
+            }
+
+            var endpoint = FindLocationEndpointByRegionId(regionId);
+            if (null == endpoint)
+            {
+                await FillEndPointFromLocationAsync(regionId, product, credential, locationProduct);
+            }
+            else
+            {
+                var productDomains = endpoint.ProductDomains;
+                var productDomain = FindProductDomain(productDomains, product);
+                if (null == productDomain)
+                {
+                    await FillEndPointFromLocationAsync(regionId, product, credential, locationProduct);
+                }
+            }
+
+            return locationEndpoints;
+        }
+
         private void FillEndPointFromLocation(String regionId, String product, Credential credential, String locationProduct)
         {
             Endpoint endpoint = remoteProvider.GetEndpoint(regionId, product, locationProduct, credential,
@@ -279,6 +331,22 @@ namespace Aliyun.Acs.Core.Profile
                 foreach (String region in endpoint.RegionIds)
                 {
                     foreach (ProductDomain productDomain in endpoint.ProductDomains)
+                    {
+                        AddLocationEndpoint(endpoint.Name, region, product, productDomain.DomianName);
+                    }
+                }
+            }
+        }
+
+        private async Task FillEndPointFromLocationAsync(String regionId, String product, Credential credential, String locationProduct)
+        {
+            var endpoint = await remoteProvider.GetEndpointAsync(regionId, product, locationProduct, credential,
+                        locationConfig);
+            if (endpoint != null)
+            {
+                foreach (var region in endpoint.RegionIds)
+                {
+                    foreach (var productDomain in endpoint.ProductDomains)
                     {
                         AddLocationEndpoint(endpoint.Name, region, product, productDomain.DomianName);
                     }
