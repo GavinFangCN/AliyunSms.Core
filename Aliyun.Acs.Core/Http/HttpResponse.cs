@@ -23,6 +23,7 @@ using System.IO;
 using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 
 namespace Aliyun.Acs.Core.Http
 {
@@ -117,6 +118,36 @@ namespace Aliyun.Acs.Core.Http
             try
             {
                 httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+            }
+            catch (WebException ex)
+            {
+                if (ex.Response != null)
+                {
+                    httpWebResponse = (HttpWebResponse)ex.Response;
+                }
+                else
+                {
+                    throw ex;
+                }
+            }
+
+            PasrseHttpResponse(httpResponse, httpWebResponse);
+            return httpResponse;
+        }
+
+        public static async Task<HttpResponse> GetResponseAsync(HttpRequest request, int? timeout = null)
+        {
+            var httpWebRequest = GetWebRequest(request);
+            if (timeout != null)
+            {
+                httpWebRequest.Timeout = (int)timeout;
+            }
+
+            var httpResponse = new HttpResponse(httpWebRequest.RequestUri.AbsoluteUri);
+            HttpWebResponse httpWebResponse = null;
+            try
+            {
+                httpWebResponse = (await httpWebRequest.GetResponseAsync()) as HttpWebResponse;
             }
             catch (WebException ex)
             {
