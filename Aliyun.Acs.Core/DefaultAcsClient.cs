@@ -25,6 +25,7 @@ using Aliyun.Acs.Core.Regions;
 using Aliyun.Acs.Core.Transform;
 using System.Collections.Generic;
 using System;
+using System.Threading.Tasks;
 
 namespace Aliyun.Acs.Core
 {
@@ -191,6 +192,39 @@ namespace Aliyun.Acs.Core
             }
             return response;
         }
+
+        public async Task<HttpResponse> DoActionAsync<T>(AcsRequest<T> request, bool autoRetry, int maxRetryNumber, string regionId,
+            Credential credential, ISigner signer, FormatType? format, List<Endpoint> endpoints) where T : AcsResponse
+        {
+            FormatType? requestFormatType = request.AcceptFormat;
+            if (null != requestFormatType)
+            {
+                format = requestFormatType;
+            }
+            if (null == request.RegionId)
+            {
+                request.RegionId = regionId;
+            }
+
+            var domain = Endpoint.FindProductDomain(regionId, request.Product, endpoints, this);
+            if (null == domain)
+            {
+                throw new ClientException("SDK.InvalidRegionId", "Can not find endpoint to access.");
+            }
+
+            var httpRequest = request.SignRequest(signer, credential, format, domain);
+            int retryTimes = 1;
+            var response = await HttpResponse.GetResponseAsync(httpRequest, timeoutInMilliSeconds);
+            while (500 <= response.Status && autoRetry && retryTimes < maxRetryNumber)
+            {
+                httpRequest = request.SignRequest(signer, credential, format, domain);
+                response = await HttpResponse.GetResponseAsync(httpRequest, timeoutInMilliSeconds);
+                retryTimes++;
+            }
+
+            return response;
+        }
+
 
         private T ReadResponse<T>(AcsRequest<T> request, HttpResponse httpResponse, FormatType? format) where T : AcsResponse
         {
