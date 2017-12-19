@@ -29,7 +29,7 @@ using System.Threading.Tasks;
 
 namespace Aliyun.Acs.Core
 {
-    public class DefaultAcsClient : IAcsClient
+    public class DefaultAcsClient : IAcsClient, IAsyncAcsClient
     {
 
         private int maxRetryNumber = 3;
@@ -53,9 +53,21 @@ namespace Aliyun.Acs.Core
             return ParseAcsResponse(request, httpResponse);
         }
 
+        public async Task<T> GetAcsResponseAsync<T>(AcsRequest<T> request) where T : AcsResponse
+        {
+            var httpResponse = await DoActionAsync(request);
+            return ParseAcsResponse(request, httpResponse);
+        }
+
         public T GetAcsResponse<T>(AcsRequest<T> request, bool autoRetry, int maxRetryNumber) where T : AcsResponse
         {
-            HttpResponse httpResponse = this.DoAction(request, autoRetry, maxRetryNumber);
+            var httpResponse = this.DoAction(request, autoRetry, maxRetryNumber);
+            return ParseAcsResponse(request, httpResponse);
+        }
+
+        public async Task<T> GetAcsResponseAsync<T>(AcsRequest<T> request, bool autoRetry, int maxRetryNumber) where T : AcsResponse
+        {
+            var httpResponse = await DoActionAsync(request, autoRetry, maxRetryNumber);
             return ParseAcsResponse(request, httpResponse);
         }
 
@@ -65,9 +77,21 @@ namespace Aliyun.Acs.Core
             return ParseAcsResponse(request, httpResponse);
         }
 
+        public async Task<T> GetAcsResponseAsync<T>(AcsRequest<T> request, IClientProfile profile) where T : AcsResponse
+        {
+            var httpResponse =  await DoActionAsync(request, profile);
+            return ParseAcsResponse(request, httpResponse);
+        }
+
         public T GetAcsResponse<T>(AcsRequest<T> request, string regionId, Credential credential) where T : AcsResponse
         {
             HttpResponse httpResponse = this.DoAction(request, regionId, credential);
+            return ParseAcsResponse(request, httpResponse);
+        }
+
+        public async Task<T> GetAcsResponseAsync<T>(AcsRequest<T> request, string regionId, Credential credential) where T : AcsResponse
+        {
+            var httpResponse = await DoActionAsync(request, regionId, credential);
             return ParseAcsResponse(request, httpResponse);
         }
 
@@ -79,6 +103,20 @@ namespace Aliyun.Acs.Core
             CommonResponse response = new CommonResponse();
             response.Data = data;
             response.HttpResponse = httpResponse;
+
+            return response;
+        }
+
+        public async Task<CommonResponse> DoCommonActionAsync(CommonRequest request)
+        {
+            var httpResponse = await DoActionAsync(request);
+            var data = System.Text.Encoding.UTF8.GetString(httpResponse.Content);
+
+            var response = new CommonResponse
+            {
+                Data = data,
+                HttpResponse = httpResponse
+            };
 
             return response;
         }
@@ -120,15 +158,31 @@ namespace Aliyun.Acs.Core
             return DoAction(request, autoRetry, maxRetryNumber, this.clientProfile);
         }
 
+        public async Task<HttpResponse> DoActionAsync<T>(AcsRequest<T> request) where T : AcsResponse
+        {
+            return await DoActionAsync(request, autoRetry, maxRetryNumber, this.clientProfile);
+        }
+
         public HttpResponse DoAction<T>(AcsRequest<T> request, bool autoRetry, int maxRetryNumber) where T : AcsResponse
         {
             return DoAction(request, autoRetry, maxRetryNumber, this.clientProfile);
+        }
+
+        public async Task<HttpResponse> DoActionAsync<T>(AcsRequest<T> request, bool autoRetry, int maxRetryNumber) where T : AcsResponse
+        {
+            return await DoActionAsync(request, autoRetry, maxRetryNumber, this.clientProfile);
         }
 
         public HttpResponse DoAction<T>(AcsRequest<T> request, IClientProfile profile) where T : AcsResponse
         {
             return DoAction(request, this.autoRetry, this.maxRetryNumber, profile);
         }
+
+        public async Task<HttpResponse> DoActionAsync<T>(AcsRequest<T> request, IClientProfile profile) where T : AcsResponse
+        {
+            return await DoActionAsync(request, this.autoRetry, this.maxRetryNumber, profile);
+        }
+
 
         public HttpResponse DoAction<T>(AcsRequest<T> request, string regionId, Credential credential) where T : AcsResponse
         {
@@ -143,6 +197,21 @@ namespace Aliyun.Acs.Core
             }
             return DoAction(request, autoRetry, this.maxRetryNumber, regionId, credential, signer, format, endpoints);
         }
+
+        public async Task<HttpResponse> DoActionAsync<T>(AcsRequest<T> request, string regionId, Credential credential) where T : AcsResponse
+        {
+            ISigner signer = null;
+            FormatType format = FormatType.JSON;
+            List<Endpoint> endpoints = null;
+            if (null != this.clientProfile)
+            {
+                signer = clientProfile.GetSigner();
+                format = clientProfile.GetFormat();
+                endpoints = await clientProfile.GetEndpointsAsync(regionId, request.Product, credential, request.LocationProduct); ;
+            }
+            return await DoActionAsync(request, autoRetry, this.maxRetryNumber, regionId, credential, signer, format, endpoints);
+        }
+
 
         public HttpResponse DoAction<T>(AcsRequest<T> request, bool autoRetry,
                 int maxRetryNumber, IClientProfile profile) where T : AcsResponse
@@ -163,6 +232,29 @@ namespace Aliyun.Acs.Core
 
             return DoAction(request, autoRetry, maxRetryNumber, regionId, credential, signer, format, endpoints);
         }
+
+        public async Task<HttpResponse> DoActionAsync<T>(AcsRequest<T> request, bool autoRetry,
+                int maxRetryNumber, IClientProfile profile) where T : AcsResponse
+        {
+            if (null == profile)
+            {
+                throw new ClientException("SDK.InvalidProfile", "No active profile found.");
+            }
+
+            var regionId = profile.GetRegionId();
+            if (null != request.RegionId)
+            {
+                regionId = request.RegionId;
+            }
+
+            var credential = profile.GetCredential();
+            var signer = profile.GetSigner();
+            var format = profile.GetFormat();
+            var endpoints = await profile.GetEndpointsAsync(regionId, request.Product, credential, request.LocationProduct);
+
+            return await DoActionAsync(request, autoRetry, maxRetryNumber, regionId, credential, signer, format, endpoints);
+        }
+
 
         public HttpResponse DoAction<T>(AcsRequest<T> request, bool autoRetry, int maxRetryNumber, string regionId,
             Credential credential, ISigner signer, FormatType? format, List<Endpoint> endpoints) where T : AcsResponse
