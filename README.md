@@ -1,5 +1,4 @@
-# AliyunSmsDemo
-阿里云短信发送逻辑及Demo
+#阿里云短信发送
 
 .net standard 2.0
 添加async/await支持
